@@ -2,6 +2,17 @@ import logging
 import game
 import random
 
+# Class that holds necessary information about a player
+# id       : global indentifier for the device the player is linked to
+# avatar   : index of the avatar that is assigned for this player
+# nickname : user friendly name for this player
+class Player(object):
+    def __init__(self, user_id, avatar, nickname):
+        self.user_id = user_id
+        self.avatar = avatar
+        self.nickname = nickname
+
+
 # Keeps track of what games are going on and manages game ids
 class GameManager(object):
     def __init__(self):
@@ -43,8 +54,17 @@ class GameManager(object):
             return None
 
 
+    # Returns a game with the provided id, if one exists
+    def getGame(self, errors, game_id):
+        if game_id in self._games:
+            return self._games[game_id]
+        else:
+            errors.append("Game does not exist, id:" + game_id)
+            return None
+
+
     # Randomly selects and returns an available id
-    def giveRandomId(self, errors):
+    def _pickRandomId(self, errors):
         if len(self._free_ids) > 0:
             return int(random.random() * len(self._free_ids))
         else:

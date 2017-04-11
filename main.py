@@ -206,6 +206,3 @@ app = webapp2.WSGIApplication([
 def writeResponse(response, json_body, status):
     response.status = status
     response.write(json.dumps(json_body))
-
-def error(error_type, location, msg):
-    return '{}, {}: {}'.format(location, error_type, msg)

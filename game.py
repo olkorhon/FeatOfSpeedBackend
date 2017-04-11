@@ -11,16 +11,19 @@ class Player(ndb.Model):
     user_id = ndb.StringProperty(indexed=True, required=True)
     nickname = ndb.StringProperty(indexed=False, required=True)
 
+
 # Sub model for representing locations
 class Location(ndb.Model):
     longitude = ndb.FloatProperty(indexed=False, required=True)
     latitude = ndb.FloatProperty(indexed=False, required=True)
+
 
 # A single game state with unique id. Also has waypoints, radius and list of players
 # id        : global identifier for this game
 # location  : coordinates to the center of the game
 # waypoints : how many waypoints will be generated for this game
 # radius    : how big the playing area will be in meters
+
 class Game(ndb.Model):
     # Static variables
     STATE_LOBBY = 0
@@ -35,6 +38,7 @@ class Game(ndb.Model):
     waypoints = ndb.IntegerProperty(indexed=False, required=True)
     current_state = ndb.IntegerProperty(indexed=True, required=True)
     players = ndb.StructuredProperty(Player, repeated=True)
+
 
 def createNewGame(game_id, location, waypoints, radius):
     # Instantiate Game
@@ -52,6 +56,7 @@ def createNewGame(game_id, location, waypoints, radius):
     logging.info('Game created with id:{}, waypoints:{}, radius:{}'.format("sas", game.waypoints, game.radius))
 
     return game
+
 
 def canJoinGame(errors, game, player):
     # Check that game has not yet ended

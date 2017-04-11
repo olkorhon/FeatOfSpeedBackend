@@ -34,6 +34,7 @@ def validateGameJoin(json_package):
     result['valid'] = len(result['errors']) == 0
     return result
 
+
 # Validates a game join request
 def validateGameLeave(json_package):
     context = "JoinValidation"
