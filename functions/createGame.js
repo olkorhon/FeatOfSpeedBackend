@@ -61,15 +61,17 @@ function fetchWaypoints(admin, game) {
 
                 // Get waypoints
                 const waypoints = [];
-                if (data.results.length > game.checkpoints) {
+                if (data.results.length > game.checkpoint_count) {
                     // Too many, get enough waypoints
-                    for (var i = 0; i < game.checkpoints; i++) {
+                    for (var i = 0; i < game.checkpoint_count; i++) {
+                        data.results[i].checkpoint_id = "" + i; // Add an identifier to this checkpoint
                         waypoints.push(data.results[i]);
                     }
                 }
                 else {
                     // Not enough, get all waypoints
-                    for (var i = 0; i < game.checkpoints; i++) {
+                    for (var i = 0; i < game.checkpoint_count; i++) {
+                        data.results[i].checkpoint_id = "" + i; // Add an identifier to this checkpoint
                         waypoints.push(data.results[i]);
                     }
                 }
