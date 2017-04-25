@@ -1,8 +1,9 @@
 // Game states
-// 0. Lobby
-// 1. Starting
-// 2. Started
-// 3. Ended
+// 0. LobbyNoWaypoints
+// 1. LobbyWaypoints
+// 2. Starting
+// 3. Started
+// 4. Ended
 
 function createGame(res, config, game_id) {
 	var game = {};
@@ -21,16 +22,16 @@ function createGame(res, config, game_id) {
 	
 	// Parse size
 	if (config.size === 'small') {
-		game.radius = 3;
-		game.checkpoints = 5;
+		game.radius = 500;
+		game.checkpoints = 4;
 	}
 	else if (config.size === 'medium') {
-		game.radius = 5;
-		game.checkpoints = 7;
+		game.radius = 1250;
+		game.checkpoints = 6;
 	}
 	else if (config.size === 'large') {
-		game.radius = 8;
-		game.checkpoints = 12;
+		game.radius = 2500;
+		game.checkpoints = 8;
 	}
 	else {
 		// Debug setting
@@ -42,15 +43,23 @@ function createGame(res, config, game_id) {
 	
 	// Initialize players
 	game.players = [];
-	
+    game.player_history = [];
+
 	return game;
+}
+
+function setReadiness(res, game, user_id)
+{
+    //for 
 }
 
 function addPlayer(res, game, player)
 {
 	// Check that player has not already joined this game
-	for (var i in game.players) {
-		if (i.user_id === player.user_id) {
+    for (var i in game.players) {
+        console.log('Comparing: ' + game.players[i].user_id + ':' + player.user_id);
+
+		if (game.players[i].user_id === player.user_id) {
 			return res.errors.push("This user is already a member of this game.");
 		}
 	} 
@@ -59,14 +68,15 @@ function addPlayer(res, game, player)
 	addTimeStamp(game);
 
 	// Player was not found, add it	
-	game.players.push(player);
+    game.players.push(player);
+    game.player_history.push(player.user_id);
 }
 
 function removePlayer(res, game, user_id) 
 {
 	// Check that player has not already joined this game
-	for (var i = 0; i < game.players.length; i++) {
-		if (game.players[i].user_id === player.user_id) {
+	for (var i in game.players) {
+		if (game.players[i].user_id === user_id) {
 			// Stamp time
 			addTimeStamp(game);
 		
@@ -81,7 +91,6 @@ function removePlayer(res, game, user_id)
 function addTimeStamp(game) {
 	game.last_edited = new Date();
 }
-
 
 // Define functions to expose
 module.exports = {
