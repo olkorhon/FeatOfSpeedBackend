@@ -1,6 +1,7 @@
 var ValidationCore = require("../validation_core");
 
-// Validates a game join request
+// ################################################################
+// #### StampCheckpoint       #####################################
 function validateStampCheckpoint(res, req) {
     // Extract body from request
     const json_body = req.body;
@@ -38,32 +39,10 @@ function validateStampCheckpoint(res, req) {
             player: player,
             game_id: game_id,
             checkpoint_id: checkpoint_id
-        }
+        };
     }
 }
 
 // ################################
 // #### Exports               #####
-// ################################
 module.exports = { validate: validateStampCheckpoint };
-
-
-// ################################
-// #### Simple testing script #####
-// ################################
-const result = { errors: [], warnings: [] };
-const request = {
-    body: {
-        player: {
-            user_id: '2564',
-            nickname: 5
-        }
-    },
-    query: {
-        game_id: "1234",
-        checkpoint_id: "1"
-    }
-};
-
-validateStampCheckpoint(result, request)
-console.log(result);

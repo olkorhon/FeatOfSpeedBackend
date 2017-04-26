@@ -1,13 +1,12 @@
 const functions = require('firebase-functions');
 const request = require('request-promise');
 
-const game_helper = require('./game');
-const joinHandler = require('./joinGame');
-const leaveHandler = require('./leaveGame');
-const createHandler = require('./createGame');
-const validation = require('./validation');
-
+const joinHandler = require('./routes/joinGame/joinGame');
+const leaveHandler = require('./routes/leaveGame/leaveGame');
+const createHandler = require('./routes/createGame/createGame');
 const stampHandler = require('./routes/stampCheckpoint/stampCheckpoint');
+
+//const validation = require('./validation');
 
 const admin = require('firebase-admin');
 admin.initializeApp(functions.config().firebase);

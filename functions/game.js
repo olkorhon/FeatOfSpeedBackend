@@ -118,7 +118,6 @@ function getPlayer(res, game, user_id) {
     }
 
     // Player not found
-    res.errors.push("Could not find player: " + user_id + " in game: " + game.game_id);
     return undefined;
 }
 function isPlayerInGame(res, game, user_id) {

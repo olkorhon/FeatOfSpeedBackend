@@ -1,50 +1,47 @@
-const game_helper = require('./game');
+const secrets = require('../../secrets');
+const game_helper = require('../../game');
 const validation = require('./validation');
 const functions = require('firebase-functions');
 const request = require('request-promise');
-const secrets = require('./secrets');
 
 const base_url = "https://maps.googleapis.com/maps/api/place/textsearch/json?types=point_of_interest"
 
 function handleRequest(admin, req, res) {
     // Create holder for response data
-    const response_data = { errors: [], warnings: [] };
+    const response_holder = { errors: [], warnings: [] };
 
     // Respond only to post requests
     if (req.method !== 'POST') {
-        response_data.errors.push('This function only replies to POST messages.');
-        return res.status(400).json(response_data);
+        response_holder.errors.push('This function only replies to POST messages.');
+        return res.status(400).json(response_holder);
     }
 
     // Extract body from request
-    const json_body = req.body;
-    validation.gameCreate(response_data, json_body);
+    const valid_body = validation.gameCreate(response_holder, req);
 
     // Escape if validation failed
-    if (response_data.errors.length !== 0) {
-        return res.status(400).json(response_data);
+    if (!valid_body) {
+        return res.status(400).json(response_holder);
     }
 
-    // Extract config from json_package
-    const config = json_body.config;
-
     // Create game out of config
-    const game_obj = game_helper.createGame(response_data, config, "1234");
+    const game_obj = game_helper.createGame(response_holder, valid_body.config, "1234");
 
     // Add provided player as the first player / host
-    game_helper.addPlayer(response_data, game_obj, json_body.host);
+    game_helper.addPlayer(response_holder, game_obj, valid_body.host);
 
     // Perform database calls
     admin.database().ref('games/' + game_obj.game_id).once('value').then(function (data) {
         console.log('Old game: ' + data.val());
         admin.database().ref('games/' + game_obj.game_id).set(game_obj).then(snapshot => {
-            response_data.game = game_obj;
-            fetchWaypoints(admin, game_obj);
-            return res.status(200).json(response_data);
+            response_holder.game = game_obj;
+            fetchWaypoints(admin, game_obj); // Async call to fetch waypoints for this game
+            return res.status(200).json(response_holder);
         });
     });
 }
 
+// Routine for fetching waypoints for a game
 function fetchWaypoints(admin, game) {
     const final_url = base_url
         + '&key='      + secrets.places_api
