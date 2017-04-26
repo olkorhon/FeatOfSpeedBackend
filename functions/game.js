@@ -179,11 +179,16 @@ function addTimeStamp(game) {
 	game.last_edited = new Date();
 }
 
+function startGame(game) {
+    game.current_state = 2;
+}
+
 // Define functions to expose
 module.exports = {
-	createGame  : createGame,
-	addPlayer   : addPlayer,
+    createGame: createGame,
+    addPlayer: addPlayer,
     removePlayer: removePlayer,
     setReadiness: setReadiness,
-    addStamp    : addStamp
-}
+    addStamp: addStamp,
+    startGame: startGame
+};

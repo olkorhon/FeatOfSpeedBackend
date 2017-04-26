@@ -1,5 +1,5 @@
-const game_helper = require('../../game');
-const validation = require('./validation');
+const GameHelper = require('../../game');
+const Validation = require('./validation');
 const functions = require('firebase-functions');
 const request = require('request-promise');
 
@@ -13,33 +13,35 @@ function handleRequest(admin, req, res) {
         return res.status(400).json(response_holder);
     }
 
-    // Extract body from request
-    const valid_body = validation.gameLeave(response_holder, req);
+    // Parse valid body from request 
+    valid_body = Validation.validate(response_holder, req);
 
     // Escape if validation failed
     if (!valid_body) {
         return res.status(400).json(response_holder);
     }
 
+    // Find the game we want to modify
     admin.database().ref('games/' + valid_body.game_id).once('value').then(function (data) {
         const game_obj = data.val();
         console.log('Found game: ' + game_obj);
 
         // If a game exists
         if (game_obj) {
-            game_helper.removePlayer(response_holder, game_obj, valid_body.user_id);
+            GameHelper.setReadiness(response_holder, game_obj, valid_body.user_id);
 
-            // removePlayer should go through without errors
+            // setReadiness should go through without errors
             if (response_holder.errors.length === 0) {
                 // Save updated game to database
                 admin.database().ref('games/' + valid_body.game_id).set(game_obj).then(snapshot => {
+                    // Add instance of the updated game to response and send response
                     response_holder.game = game_obj;
                     return res.status(200).json(response_holder);
                 });
             }
             else {
-                // No player was added, but not really a crippling error
-                res.status(200).json(response_holder);
+                // Errors happened during request, report failure
+                res.status(400).json(response_holder);
             }
         }
         else {

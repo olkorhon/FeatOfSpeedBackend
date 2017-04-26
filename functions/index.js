@@ -5,6 +5,8 @@ const joinHandler = require('./routes/joinGame/joinGame');
 const leaveHandler = require('./routes/leaveGame/leaveGame');
 const createHandler = require('./routes/createGame/createGame');
 const stampHandler = require('./routes/stampCheckpoint/stampCheckpoint');
+const announceReadyHandler = require('./routes/announceReady/announceReady');
+const startHandler = require('./routes/startGame/startGame');
 
 //const validation = require('./validation');
 
@@ -25,4 +27,12 @@ exports.leaveGame = functions.https.onRequest((req, res) => {
 
 exports.stampGame = functions.https.onRequest((req, res) => {
     stampHandler.handle(admin, req, res);
+});
+
+exports.announceReadiness = functions.https.onRequest((req, res) => {
+    announceReadyHandler.handle(admin, req, res);
+});
+
+exports.startGame = functions.https.onRequest((req, res) => {
+    startHandler.handle(admin, req, res);
 });

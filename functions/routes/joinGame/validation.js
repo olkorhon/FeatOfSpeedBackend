@@ -21,7 +21,7 @@ function validateGameJoin(res, req) {
     // Extract game_id form request
     const game_id = req.query.game_id;
     if (!game_id) {
-        res.errors.push('No game_id found, did you forget to pass it in the url?');
+        res.errors.push('No game_id passed with request, did you remember to pass it in the request url?');
     }
 
     // Return a valid request body to caller, if possible

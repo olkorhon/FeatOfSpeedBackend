@@ -1,15 +1,9 @@
 var ValidationCore = require("../validation_core");
 
 // ################################################################
-// #### GameLeave             #####################################
-function validateGameLeave(res, req) {
-    // Extract player_id from request
-    const user_id = req.query.user_id;
-    if (!user_id) {
-        res.errors.push('No user_id passed with request, did you remember to pass it in the request url?');
-    }
-
-    // Extract game_id form request
+// #### GameCreate            #####################################
+function validateGameCreate(res, req) {
+    // Extract game_id from request
     const game_id = req.query.game_id;
     if (!game_id) {
         res.errors.push('No game_id passed with request, did you remember to pass it in the request url?');
@@ -20,13 +14,10 @@ function validateGameLeave(res, req) {
         return undefined;
     }
     else {
-        return {
-            user_id: user_id,
-            game_id: game_id
-        };
+        return { game_id: game_id };
     }
 }
 
 // ################################################################
 // #### Exports               #####################################
-module.exports = { gameLeave: validateGameLeave };
+module.exports = { gameCreate: validateGameCreate };
