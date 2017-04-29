@@ -16,38 +16,58 @@ function createGame(res, config, game_id) {
 	// Parse size
 	if (config.size === 'small') {
 		game.radius = 500;
-		game.checkpoint_count = 4;
+		game.waypoint_count = 4;
 	}
 	else if (config.size === 'medium') {
 		game.radius = 1250;
-		game.checkpoint_count = 6;
+        game.waypoint_count = 6;
 	}
 	else if (config.size === 'large') {
 		game.radius = 2500;
-		game.checkpoint_count = 8;
+        game.waypoint_count = 8;
 	}
 	else {
 		// Debug setting
 		console.log('Validation has failed, size was something unexpected, received: ' + config.size);
 		res.warnings.push('Validation has failed, size was something unexpected, received: ' + config.size);
 		game.radius = 1;
-		game.checkpoint_count = 1;
+		game.waypoint_count = 1;
 	}
 	
 	// Initialize players
-	game.players = [];
-    game.player_history = [];
+    game.players = [];
 
-    // Initialize checkpoints
-    game.checkpoints = []
+    // Initialize waypoints
+    game.waypoints = []
 
 	return game;
 }
 
-function setReadiness(res, game, user_id)
-{
+function getRandomUniqueId(res, games) {
+    for (var i = 0; i < 10000; i++) {
+        let free_found = false;
+        for (var key in games) {
+            if (i == key) {
+                free_found = true;
+            }
+        }
+
+        // Free id was found
+        if (!free_found) {
+            const str = "" + i;
+            const pad = "0000";
+            return pad.substring(0, pad.length - str.length) + i;
+        }
+    }
+
+    // Not unique ids left
+    res.errors.push("No open random ids found");
+    return undefined;
+}
+
+function setReadiness(res, game, user_id) {
     // Get player
-    player = getPlayer(res, game, user_id);
+    player = getPlayer(game, user_id);
 
     // Set player readiness
     if (player) {
@@ -58,27 +78,27 @@ function setReadiness(res, game, user_id)
     }
 }
 
-function addStamp(res, game, user_id, checkpoint_id) {
-    const waypoint = getWaypoint(res, game, checkpoint_id);
-    const player = getPlayer(res, game, user_id);
+function addStamp(res, game, user_id, waypoint_id) {
+    const waypoint = getWaypoint(res, game, waypoint_id);
+    const player = getPlayer(game, user_id);
 
-    // Proceed if instances of user and checkpoint can be found
+    // Proceed if instances of user and waypoint can be found
     if (waypoint && player) {
-        if (!hasPlayerVisitedCheckpoint(player, checkpoint_id)) {
-            if (!player.visited_checkpoints)
-                player.visited_checkpoints = [{ checkpoint_id: checkpoint_id, time: new Date() }];
+        if (!hasPlayerVisitedWaypoint(player, waypoint_id)) {
+            if (!player.visited_waypoints)
+                player.visited_waypoints = [{ waypoint_id: waypoint_id, time: new Date() }];
             else {
-                player.visited_checkpoints.push({ checkpoint_id: checkpoint_id, time: new Date() });
+                player.visited_waypoints.push({ waypoint_id: waypoint_id, time: new Date() });
             }
         }
         else {
-            res.errors.push("Could not stamp checkpoint: " + checkpoint_id + ", player: " + user_id + " has already stamped this checkpoint")
+            res.errors.push("Could not stamp waypoint: " + waypoint_id + ", player: " + user_id + " has already stamped this waypoint")
         }
     }
     else {
         // Log what went wrong
         if (!waypoint) {
-            res.errors.push("No waypoint with id: " + checkpoint_id + " was found");
+            res.errors.push("No waypoint with id: " + waypoint_id + " was found");
         }
         if (!player) {
             res.errors.push("No user with id: " + user_id + " was found");
@@ -86,22 +106,22 @@ function addStamp(res, game, user_id, checkpoint_id) {
     }
 }
 
-function getWaypoint(res, game, checkpoint_id) {
-    // Iterate through checkpoints in a list and return True if an instance with matching id is found
+function getWaypoint(res, game, waypoint_id) {
+    // Iterate through waypoints in a list and return True if an instance with matching id is found
     for (var i in game.waypoints) {
-        if (game.waypoints[i].checkpoint_id === checkpoint_id) {
+        if (game.waypoints[i].waypoint_id === waypoint_id) {
             return game.waypoints[i];
         }
     }
 
-    // Checkpoint not found
-    res.errors.push("Could not find checkpoint: " + checkpoint_id + " in game: " + game.game_id);
+    // Waypoint not found
+    res.errors.push("Could not find waypoint: " + waypoint_id + " in game: " + game.game_id);
     return undefined;
 }
 
-function hasPlayerVisitedCheckpoint(player, checkpoint_id) {
-    for (var i in player.visited_checkpoints) {
-        if (player.visited_checkpoints[i] === checkpoint_id) {
+function hasPlayerVisitedWaypoint(player, waypoint_id) {
+    for (var i in player.visited_waypoints) {
+        if (player.visited_waypoints[i] === waypoint_id) {
             return true;
         }
     }
@@ -109,65 +129,61 @@ function hasPlayerVisitedCheckpoint(player, checkpoint_id) {
     return false;
 }
 
-function getPlayer(res, game, user_id) {
+function getPlayer(game, user_id) {
     // Check whether a player has ever been a part of this game
     for (var i in game.players) {
-        if (game.player_history[i].user_id === user_id) {
-            return game.player_history[i];
+        if (game.players[i].user_id === user_id) {
+            return game.players[i];
         }
     }
 
     // Player not found
     return undefined;
 }
-function isPlayerInGame(res, game, user_id) {
-    // Check whether a player is currently in game
-    for (var i in game.players) {
-        if (game.players[i] === user_id) {
-            return true;
-        }
-    }
 
-    // Player not found
-    return false;
-}
+function addPlayer(res, game, player) {
+    const existing_player = getPlayer(game, player.user_id);
 
-function addPlayer(res, game, player)
-{
-    const player_exists = isPlayerInGame(res, game, player.user_id);
-    const player_history = getPlayer(res, game, player.user_id);
-
-    if (!player_exists && !player_history) {
+    if (!existing_player) {
         // New player add without issues
         addTimeStamp(game);
         player.ready = false; // Set player as initially not ready
-        player.visited_checkpoints = []; // Initialize holder for visited checkpoints for player
-        game.player_history.push(player);
-        game.players.push(player.user_id);
+        player.visited_waypoints = []; // Initialize holder for visited waypoints for player
+        player.currently_playing = true;
+        game.players.push(player);
     }
-    else if (!player_exists) {
-        // A player who was a member of this game rejoined
-        addTimeStamp(game);
-        game.players.push(player.user_id);
-    }
-    else if (!player_history) {
-        // Error state, player who is a part of this game exists without a history
-        res.errors.push("Very weird stuff happening, player found in the game but has no history");
+    else if (!existing_player.currently_playing) {
+        // Existing player, update playing status
+        res.warnings.push("Player currently not playing, updating status");
+        existing_player.currently_playing = true;
+        existing_player.nickname = player.nickname;
     }
     else {
         // Player already part of this game no changes to db necessary
         res.warnings.push("Player already part of this game, no need to change values in database");
+        existing_player.nickname = player.nickname; // Possibly nickname has been changed
     }
 }
 
-function removePlayer(res, game, user_id) 
-{
+function countCurrentPlayers(game) {
+    let active_players = 0;
+    for (var i in game.players) {
+        if (game.players[i].currently_playing) {
+            active_players += 1;
+        }
+    }
+
+    return active_players;
+}
+
+function removePlayer(res, game, user_id) {
 	// Check that player has not already joined this game
 	for (var i in game.players) {
-		if (game.players[i] === user_id) {
+		if (game.players[i].user_id === user_id) {
 			// Stamp time
-			addTimeStamp(game);
-			return game.players.splice(i, 1);
+            addTimeStamp(game);
+            game.players[i].currently_playing = false;
+            return;
 		}
 	} 
 
@@ -179,16 +195,23 @@ function addTimeStamp(game) {
 	game.last_edited = new Date();
 }
 
-function startGame(game) {
-    game.current_state = 2;
+function startGame(res, game) {
+    if (game.current_state == 1) {
+        game.current_state = 3;
+    } else {
+        res.errors.push("Cannot move to state 2 from state: " + game.current_state + ". Waiting for waypoints?");
+    }
 }
 
 // Define functions to expose
 module.exports = {
     createGame: createGame,
+    addStamp: addStamp,
+    startGame: startGame,
     addPlayer: addPlayer,
+    getPlayer: getPlayer,
     removePlayer: removePlayer,
     setReadiness: setReadiness,
-    addStamp: addStamp,
-    startGame: startGame
+    getRandomUniqueId: getRandomUniqueId,
+    countCurrentPlayers: countCurrentPlayers
 };

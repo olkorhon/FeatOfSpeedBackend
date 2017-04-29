@@ -4,7 +4,7 @@ const validation = require('./validation');
 const functions = require('firebase-functions');
 const request = require('request-promise');
 
-const base_url = "https://maps.googleapis.com/maps/api/place/textsearch/json?types=point_of_interest"
+const base_url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?types=point_of_interest"
 
 function handleRequest(admin, req, res) {
     // Create holder for response data
@@ -24,56 +24,114 @@ function handleRequest(admin, req, res) {
         return res.status(400).json(response_holder);
     }
 
-    // Create game out of config
-    const game_obj = game_helper.createGame(response_holder, valid_body.config, "1234");
+    admin.database().ref('games/').once('value').then(function (data) {
+        // Get all games
+        const games = data.val();
 
-    // Add provided player as the first player / host
-    game_helper.addPlayer(response_holder, game_obj, valid_body.host);
+        try {
+            new_game_id = game_helper.getRandomUniqueId(response_holder, games);
+            console.log("ID generated: " + new_game_id);
+        }
+        catch (e) {
+            new_game_id = "1234";
+            console.log("Could not fetch id:" + e);
+        }
 
-    // Perform database calls
-    admin.database().ref('games/' + game_obj.game_id).once('value').then(function (data) {
-        console.log('Old game: ' + data.val());
-        admin.database().ref('games/' + game_obj.game_id).set(game_obj).then(snapshot => {
-            response_holder.game = game_obj;
-            fetchWaypoints(admin, game_obj); // Async call to fetch waypoints for this game
-            return res.status(200).json(response_holder);
+        // Queue disconnect from other games
+        try {
+            disconnectPlayersFromOtherGames(admin, games, valid_body.host.user_id);
+        }
+        catch (e) {
+            console.log("Could not disconnect from other games: " + e);
+        }
+
+        // Create game out of config
+        const game_obj = game_helper.createGame(response_holder, valid_body.config, new_game_id);
+
+        // Add provided player as the first player / host
+        game_helper.addPlayer(response_holder, game_obj, valid_body.host);
+
+        // Perform database calls
+        admin.database().ref('games/' + game_obj.game_id).once('value').then(function (data) {
+            console.log('Found game: ' + data.val());
+            admin.database().ref('games/' + game_obj.game_id).set(game_obj).then(snapshot => {
+                response_holder.game = game_obj;
+                fetchWaypoints(admin, game_obj); // Async call to fetch waypoints for this game
+                return res.status(200).json(response_holder);
+            });
         });
     });
+}
+
+function disconnectPlayersFromOtherGames(admin, games, user_id) {
+    results = { errors: [], warnings: [] };
+
+    console.log(user_id);
+    console.log("Disconnect player from: " + JSON.stringify(games));
+    for (var game in games) {
+        // If player is in this game, remove it
+        let player = game_helper.getPlayer(games[game], user_id);
+
+        if (player !== undefined) {
+            game_helper.removePlayer(results, games[game], user_id);
+            if (results.errors.length === 0) {
+                let current_players = game_helper.countCurrentPlayers(games[game]);
+
+                // Either update result or delete the game if the last player left
+                if (current_players === 0) {
+                    admin.database().ref('games/' + games[game].game_id).remove();
+                }
+                else {
+                    admin.database().ref('games/' + games[game].game_id).set(games[game]).then(snapshot => {
+                        console.log("Player: " + user_id + ", removed from game: " + game);
+                    });
+                }
+            } else {
+                console.log(JSON.stringify(results.errors));
+            }
+        }
+    }
 }
 
 // Routine for fetching waypoints for a game
 function fetchWaypoints(admin, game) {
     const final_url = base_url
-        + '&key='      + secrets.places_api
-        + '&location=' + game.location.longitude + ',' + game.location.latitude
+        + '&key=' + secrets.places_api
+        + '&location=' + game.location.latitude + ',' + game.location.longitude
         + '&radius='   + game.radius;
+    console.log("Sending request to Places API, calling URL:" + final_url);
 
     request(final_url, { resolveWithFullResponse: true }).then(
         response => {
             if (response.statusCode === 200) {
                 const data = JSON.parse(response.body);
 
-                console.log(response.body);
-                console.log(data);
+                console.log("Answer from places API: " + response.body);
 
                 // Get waypoints
                 const waypoints = [];
-                if (data.results.length > game.checkpoint_count) {
+                if (data.results.length > game.waypoint_count) {
                     // Too many, get enough waypoints
-                    for (var i = 0; i < game.checkpoint_count; i++) {
-                        data.results[i].checkpoint_id = "" + i; // Add an identifier to this checkpoint
-                        waypoints.push(data.results[i]);
+                    for (var i = 0; i < game.waypoint_count; i++) {
+                        waypoint = {
+                            waypoint_id: i,
+                            name: data.results[i].name,
+                            location: data.results[i].geometry.location
+                        };
+                        waypoints.push(waypoint);
                     }
                 }
                 else {
                     // Not enough, get all waypoints
-                    for (var i = 0; i < game.checkpoint_count; i++) {
-                        data.results[i].checkpoint_id = "" + i; // Add an identifier to this checkpoint
-                        waypoints.push(data.results[i]);
+                    for (var i = 0; i < data.results.length; i++) {
+                        waypoint = {
+                            waypoint_id: i,
+                            name: data.results[i].name,
+                            location: data.results[i].geometry.location
+                        };
+                        waypoints.push(waypoint);
                     }
                 }
-
-                console.log("Waypoints: " + waypoints);
 
                 // Add waypoints to game
                 game.waypoints = waypoints;

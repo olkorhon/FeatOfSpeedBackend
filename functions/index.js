@@ -4,11 +4,13 @@ const request = require('request-promise');
 const joinHandler = require('./routes/joinGame/joinGame');
 const leaveHandler = require('./routes/leaveGame/leaveGame');
 const createHandler = require('./routes/createGame/createGame');
-const stampHandler = require('./routes/stampCheckpoint/stampCheckpoint');
+const stampHandler = require('./routes/stampWaypoint/stampWaypoint');
 const announceReadyHandler = require('./routes/announceReady/announceReady');
 const startHandler = require('./routes/startGame/startGame');
 
 //const validation = require('./validation');
+
+const game_helper = require('./game');
 
 const admin = require('firebase-admin');
 admin.initializeApp(functions.config().firebase);
@@ -35,4 +37,14 @@ exports.announceReadiness = functions.https.onRequest((req, res) => {
 
 exports.startGame = functions.https.onRequest((req, res) => {
     startHandler.handle(admin, req, res);
+});
+
+exports.newCreate = functions.https.onRequest((req, res) => {
+    console.log('New create  received');
+    admin.database().ref('games/').once('value').then(function (data) {
+        const games = data.val();
+        console.log('Found games:' + games);
+        console.log("ID generated: " + game_helper.getRandomUniqueId({errors:[], warnings:[]}, games));
+        res.status(200).json(games);
+    });
 });

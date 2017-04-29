@@ -28,66 +28,22 @@ function handleRequest(admin, req, res) {
         console.log('Found game: ' + game_obj);
 
         // Start the game
-        game_helper.startGame(game_obj);
+        game_helper.startGame(response_holder, game_obj);
 
-        // Create and update game reference
-        const game_db_ref = admin.database().ref('games/' + valid_body.game_id);
-        game_db_ref.update(game_obj);
+        if (response_holder.errors.length === 0) {
 
-        // Send response
-        response_holder.game = game_obj;
-        return res.status(200).json(response_holder);
-    });
-}
+            // Create and update game reference
+            const game_db_ref = admin.database().ref('games/' + valid_body.game_id);
+            game_db_ref.update(game_obj);
 
-// Routine for fetching waypoints for a game
-function fetchWaypoints(admin, game) {
-    const final_url = base_url
-        + '&key='      + secrets.places_api
-        + '&location=' + game.location.longitude + ',' + game.location.latitude
-        + '&radius='   + game.radius;
-
-    request(final_url, { resolveWithFullResponse: true }).then(
-        response => {
-            if (response.statusCode === 200) {
-                const data = JSON.parse(response.body);
-
-                console.log(response.body);
-                console.log(data);
-
-                // Get waypoints
-                const waypoints = [];
-                if (data.results.length > game.checkpoint_count) {
-                    // Too many, get enough waypoints
-                    for (var i = 0; i < game.checkpoint_count; i++) {
-                        data.results[i].checkpoint_id = "" + i; // Add an identifier to this checkpoint
-                        waypoints.push(data.results[i]);
-                    }
-                }
-                else {
-                    // Not enough, get all waypoints
-                    for (var i = 0; i < game.checkpoint_count; i++) {
-                        data.results[i].checkpoint_id = "" + i; // Add an identifier to this checkpoint
-                        waypoints.push(data.results[i]);
-                    }
-                }
-
-                console.log("Waypoints: " + waypoints);
-
-                // Add waypoints to game
-                game.waypoints = waypoints;
-                game.current_state = 1;
-
-                // Create game reference
-                const game_db_ref = admin.database().ref('games/' + game.game_id);
-                game_db_ref.update(game);
-            }
-            else {
-                console.log('Invalid request: ' + response.statusCode);
-                console.log(response);
-            }
+            // Send response
+            response_holder.game = game_obj;
+            return res.status(200).json(response_holder);
         }
-    )
+        else {
+            return res.status(400).json(response_holder);
+        }
+    });
 }
 
 // Define functions to expose
