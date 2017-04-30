@@ -1,5 +1,5 @@
 const secrets = require('../../secrets');
-const game_helper = require('../../game');
+const GameHelper = require('../../game');
 const validation = require('./validation');
 const functions = require('firebase-functions');
 const request = require('request-promise');
@@ -12,53 +12,46 @@ function handleRequest(admin, req, res) {
 
     // Respond only to post requests
     if (req.method !== 'POST') {
+        console.log("Request was not POST, received <" + re.method + ">");
         response_holder.errors.push('This function only replies to POST messages.');
         return res.status(400).json(response_holder);
     }
 
-    // Extract body from request
+    // Extract and validate body from request
+    console.log("validating request");
     const valid_body = validation.gameCreate(response_holder, req);
 
     // Escape if validation failed
     if (!valid_body) {
+        console.log("Received body was not valid");
         return res.status(400).json(response_holder);
     }
 
+    // Fetch all game instances
     admin.database().ref('games/').once('value').then(function (data) {
-        // Get all games
+        // Fetch games from data
         const games = data.val();
 
-        try {
-            new_game_id = game_helper.getRandomUniqueId(response_holder, games);
-            console.log("ID generated: " + new_game_id);
-        }
-        catch (e) {
-            new_game_id = "1234";
-            console.log("Could not fetch id:" + e);
+        // Generate id for 
+        new_game_id = GameHelper.getRandomUniqueId(response_holder, games);
+        if (!new_game_id) {
+            console.warn("No free ids left, defaulting to 9999");
         }
 
         // Queue disconnect from other games
-        try {
-            disconnectPlayersFromOtherGames(admin, games, valid_body.host.user_id);
-        }
-        catch (e) {
-            console.log("Could not disconnect from other games: " + e);
-        }
+        disconnectPlayersFromOtherGames(admin, games, valid_body.host.user_id);
 
         // Create game out of config
-        const game_obj = game_helper.createGame(response_holder, valid_body.config, new_game_id);
+        const game_obj = GameHelper.createGame(response_holder, valid_body.config, new_game_id);
 
         // Add provided player as the first player / host
-        game_helper.addPlayer(response_holder, game_obj, valid_body.host);
+        GameHelper.addPlayer(response_holder, game_obj, valid_body.host);
 
         // Perform database calls
-        admin.database().ref('games/' + game_obj.game_id).once('value').then(function (data) {
-            console.log('Found game: ' + data.val());
-            admin.database().ref('games/' + game_obj.game_id).set(game_obj).then(snapshot => {
-                response_holder.game = game_obj;
-                fetchWaypoints(admin, game_obj); // Async call to fetch waypoints for this game
-                return res.status(200).json(response_holder);
-            });
+        admin.database().ref('games/' + game_obj.game_id).set(game_obj).then(snapshot => {
+            response_holder.game = game_obj;
+            fetchWaypoints(admin, game_obj); // Async call to fetch waypoints for this game
+            return res.status(200).json(response_holder);
         });
     });
 }
@@ -66,30 +59,29 @@ function handleRequest(admin, req, res) {
 function disconnectPlayersFromOtherGames(admin, games, user_id) {
     results = { errors: [], warnings: [] };
 
-    console.log(user_id);
-    console.log("Disconnect player from: " + JSON.stringify(games));
-    for (var game in games) {
-        // If player is in this game, remove it
-        let player = game_helper.getPlayer(games[game], user_id);
+    for (let game in games) {
+        // Skip if no player found
+        if (!GameHelper.playerIsInGame(games[game], user_id)) { continue; }
 
-        if (player !== undefined) {
-            game_helper.removePlayer(results, games[game], user_id);
-            if (results.errors.length === 0) {
-                let current_players = game_helper.countCurrentPlayers(games[game]);
+        // Attempt to remove player from game (should not fail in normal cases)
+        GameHelper.removePlayer(results, games[game], user_id);
+        if (results.errors.length !== 0) { continue; }
 
-                // Either update result or delete the game if the last player left
-                if (current_players === 0) {
-                    admin.database().ref('games/' + games[game].game_id).remove();
-                }
-                else {
-                    admin.database().ref('games/' + games[game].game_id).set(games[game]).then(snapshot => {
-                        console.log("Player: " + user_id + ", removed from game: " + game);
-                    });
-                }
-            } else {
-                console.log(JSON.stringify(results.errors));
-            }
+        // Either update result or delete the game if no more players left in the game
+        if (GameHelper.countCurrentPlayers(games[game]) === 0) {
+            // No players, delete the game
+            admin.database().ref('games/' + games[game].game_id).remove();
         }
+        else {
+            // More than one player left, just update the ref
+            console.log("Removing player: " + user_id + " from game: " + game);
+            admin.database().ref('games/' + games[game].game_id).set(games[game]);
+        }
+    }
+
+    // Log errors if some happened
+    if (results.errors.length !== 0) {
+        console.error("Errors happened while processing request: " + JSON.stringify(results.errors));
     }
 }
 
@@ -112,7 +104,7 @@ function fetchWaypoints(admin, game) {
                 const waypoints = [];
                 if (data.results.length > game.waypoint_count) {
                     // Too many, get enough waypoints
-                    for (var i = 0; i < game.waypoint_count; i++) {
+                    for (let i = 0; i < game.waypoint_count; i++) {
                         waypoint = {
                             waypoint_id: i,
                             name: data.results[i].name,
@@ -123,7 +115,7 @@ function fetchWaypoints(admin, game) {
                 }
                 else {
                     // Not enough, get all waypoints
-                    for (var i = 0; i < data.results.length; i++) {
+                    for (let i = 0; i < data.results.length; i++) {
                         waypoint = {
                             waypoint_id: i,
                             name: data.results[i].name,

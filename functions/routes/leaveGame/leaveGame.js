@@ -1,11 +1,11 @@
-const game_helper = require('../../game');
+const GameHelper = require('../../game');
 const validation = require('./validation');
 const functions = require('firebase-functions');
 const request = require('request-promise');
 
 function handleRequest(admin, req, res) {
     // Create holder for response data
-    var response_holder = { errors: [], warnings: [] };
+    let response_holder = { errors: [], warnings: [] };
 
     // Respond only to post requests
     if (req.method !== 'POST') {
@@ -21,32 +21,52 @@ function handleRequest(admin, req, res) {
         return res.status(400).json(response_holder);
     }
 
-    admin.database().ref('games/' + valid_body.game_id).once('value').then(function (data) {
-        const game_obj = data.val();
-        console.log('Found game: ' + game_obj);
+    // Fetch all game instances
+    admin.database().ref('games/').once('value').then(function (data) {
+        // Fetch games from data
+        const games = data.val();
 
-        // If a game exists
-        if (game_obj) {
-            game_helper.removePlayer(response_holder, game_obj, valid_body.user_id);
+        // Disconnect from all games
+        for (let game in games) {
+            // Skip the game we just joined
+            disconnectFromGame(admin, response_holder, games[game], valid_body.user_id);
+        }
 
-            // removePlayer should go through without errors
-            if (response_holder.errors.length === 0) {
-                // Save updated game to database
-                admin.database().ref('games/' + valid_body.game_id).set(game_obj).then(snapshot => {
-                    response_holder.game = game_obj;
-                    return res.status(200).json(response_holder);
-                });
-            }
-            else {
-                // No player was added, but not really a crippling error
-                res.status(200).json(response_holder);
-            }
+        // WARNING player might still be in the game for a while before firebase updates
+        if (response_holder.errors.length === 0) {
+            return res.status(200).json(response_holder);
         }
         else {
-            response_holder.errors.push('Could not find game with id: ' + valid_body.game_id);
-            res.status(404).json(response_holder);
+            return res.status(400).json(response_holder);
         }
     });
+
+    // Log errors to console aswell if they happened
+    if (response_holder.errors.length !== 0) {
+        console.error("Errors happened while processing request: " + JSON.stringify(response_holder.errors));
+    }
+}
+
+function disconnectFromGame(admin, res, game, user_id) {
+    // Other games, attempt to leave
+    if (!GameHelper.playerIsInGame(game, user_id)) { return; }
+
+    // Attempt to remove player from game (should not fail in normal cases)
+    res.updated = false;
+    GameHelper.removePlayer(res, game, user_id);
+
+    // Either update result or delete the game if no more players left in the game
+    if (GameHelper.countCurrentPlayers(game) === 0) {
+        // No players, delete the game
+        admin.database().ref('games/' + game.game_id).remove();
+    }
+    else {
+        // More than one player left, just update the ref
+        if (res.updated) {
+            console.log("Removing player: " + user_id + " from game: " + game.game_id);
+            admin.database().ref('games/' + game.game_id).set(game);
+        }
+    }
 }
 
 // Define functions to expose

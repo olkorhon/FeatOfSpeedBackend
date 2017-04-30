@@ -1,4 +1,4 @@
-const game_helper = require('../../game');
+const GameHelper = require('../../game');
 const validation = require('./validation');
 const functions = require('firebase-functions');
 const request = require('request-promise');
@@ -28,7 +28,7 @@ function handleRequest(admin, req, res) {
         console.log('Found game: ' + game_obj);
 
         // Start the game
-        game_helper.startGame(response_holder, game_obj);
+        GameHelper.startGame(response_holder, game_obj);
 
         if (response_holder.errors.length === 0) {
 
