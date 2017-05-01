@@ -1,8 +1,10 @@
+const functions = require('firebase-functions');
+const request = require('request-promise');
+
 const secrets = require('../../secrets');
 const GameHelper = require('../../game');
 const validation = require('./validation');
-const functions = require('firebase-functions');
-const request = require('request-promise');
+const WaypointSelector = require('../../waypoint_selector');
 
 const base_url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?types=point_of_interest"
 
@@ -102,28 +104,21 @@ function fetchWaypoints(admin, game) {
 
                 // Get waypoints
                 const waypoints = [];
-                if (data.results.length > game.waypoint_count) {
-                    // Too many, get enough waypoints
-                    for (let i = 0; i < game.waypoint_count; i++) {
-                        waypoint = {
-                            waypoint_id: i,
-                            name: data.results[i].name,
-                            location: data.results[i].geometry.location
-                        };
-                        waypoints.push(waypoint);
-                    }
+                for (let i = 0; i < data.results.length; i++) {
+                    waypoint = {
+                        waypoint_id: i,
+                        name: data.results[i].name,
+                        location: data.results[i].geometry.location
+                    };
+                    waypoints.push(waypoint);
                 }
-                else {
-                    // Not enough, get all waypoints
-                    for (let i = 0; i < data.results.length; i++) {
-                        waypoint = {
-                            waypoint_id: i,
-                            name: data.results[i].name,
-                            location: data.results[i].geometry.location
-                        };
-                        waypoints.push(waypoint);
-                    }
-                }
+
+                console.log("Before optimize: " + JSON.stringify(waypoints));
+
+                // Select optimal nodes
+                WaypointSelector.optimize(waypoints, game.waypoint_count);
+
+                console.log("After optimize: " + JSON.stringify(waypoints));
 
                 // Add waypoints to game
                 game.waypoints = waypoints;

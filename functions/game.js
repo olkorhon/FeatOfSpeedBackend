@@ -15,15 +15,15 @@ function createGame(res, config, game_id) {
 	
 	// Parse size
 	if (config.size === 'small') {
-		game.radius = 500;
+		game.radius = 800;
 		game.waypoint_count = 4;
 	}
 	else if (config.size === 'medium') {
-		game.radius = 1250;
+		game.radius = 1200;
         game.waypoint_count = 6;
 	}
 	else if (config.size === 'large') {
-		game.radius = 2500;
+		game.radius = 1600;
         game.waypoint_count = 8;
 	}
 	else {

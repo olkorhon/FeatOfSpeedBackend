@@ -30,15 +30,17 @@ function handleRequest(admin, req, res) {
         // Start the game
         GameHelper.startGame(response_holder, game_obj);
 
+        // Add starting time
+        game_obj.start_time = new Date();
+
         if (response_holder.errors.length === 0) {
 
             // Create and update game reference
             const game_db_ref = admin.database().ref('games/' + valid_body.game_id);
-            game_db_ref.update(game_obj);
-
-            // Send response
-            response_holder.game = game_obj;
-            return res.status(200).json(response_holder);
+            game_db_ref.update(game_obj).then(snaphost => {
+                response_holder.game = game_obj;
+                return res.status(200).json(response_holder);
+            });
         }
         else {
             return res.status(400).json(response_holder);
